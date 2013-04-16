@@ -8,7 +8,7 @@ EXTRACT_SUFX=	.tgz
 NO_WRKSUBDIR=	yes
 
 MAINTAINER=	markiyan.kushnir@gmail.com
-COMMENT=	A tool to amke lightweight chroot environments
+COMMENT=	A tool to make lightweight chroot environments.
 
 MAN1=		tiny-chroot.1
 MANCOMPRESSED=	no
