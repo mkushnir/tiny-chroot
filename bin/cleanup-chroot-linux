@@ -1,0 +1,129 @@
+#!/bin/bash
+
+usage() {
+    echo "`basename $0` [ -u ] [ -v ] path"
+    echo "`basename $0` -h"
+}
+
+run() {
+    local _chroot
+
+    if test -z "$1"
+    then
+        echo "Path needed"
+        usage
+        exit 1
+    fi
+    _chroot=$1
+
+    read -p "Clean up ${_chroot} ? [yes/NO]> " answer
+    if ! test "$answer" = "yes"
+    then
+        echo "Not doing anything."
+        exit 3
+    fi
+
+    UNLINKDIRS="bin lib sbin etc dev proc sys mnt tmp var usr home libdata root squid log lib64"
+    UMOUNTDIRS="`mount  | awk '{print $3;}' | grep \"${_chroot}\"`"
+
+    for i in $UMOUNTDIRS
+    do
+        umount -f "$i"
+        if test $umountonly -eq 0
+        then
+            rm -Rf $verbose "$i"
+        fi
+    done
+
+    if test $umountonly -eq 0
+    then
+        for i in $UNLINKDIRS
+        do
+            rm -Rf $verbose "${_chroot}/$i"
+        done
+    fi
+}
+
+set -o physical
+
+if test -n "$SUDO_USER"
+then
+    if test -d "/home/$SUDO_USER"
+    then
+        mychrootfile="/home/$SUDO_USER/.mychroots"
+    else
+        mychrootfile=$HOME/.mychroots
+    fi
+else
+    mychrootfile=$HOME/.mychroots
+fi
+
+
+verbose=
+umountonly=0
+
+args=`getopt huv $*`
+if test $? -ne 0
+then
+    usage
+    exit 2
+fi
+set -- $args
+while true
+do
+    case "$1" in
+    -h)
+        usage
+        exit
+        ;;
+    -u)
+        umountonly=1
+        shift
+        ;;
+    -v)
+        verbose=-v
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+done
+
+if test `id -u` -ne 0
+then
+    echo "You are not a root"
+    usage
+    exit 1
+fi
+
+oldchroot=$1
+
+if test -e $mychrootfile
+then
+    if test -d $oldchroot
+    then
+        cd $oldchroot
+        oldchroot=`pwd`
+        if grep  -q "^${oldchroot}\$" $mychrootfile
+        then
+            if run $oldchroot
+            then
+                grep -v "^$oldchroot\$" $mychrootfile > ${mychrootfile}.tmp
+                mv ${mychrootfile}.tmp ${mychrootfile}
+            else
+                exit 3
+            fi
+        else
+            echo "Not your chroot: $oldchroot"
+            usage
+            exit 1
+        fi
+    else
+        echo "No such directory: $oldchroot"
+        usage
+        exit 1
+    fi
+fi
+

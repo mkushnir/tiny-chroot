@@ -1,0 +1,342 @@
+#!/bin/bash
+
+usage() {
+    echo "As a root: `basename $0` [ -m ] [ -p ] [ -s ] [ -f ] [ -v ] [-t template-root ] path"
+    echo "`basename $0` -l"
+    echo "`basename $0` -h"
+}
+
+ZEROGRP=root
+is_mounted() {
+    mount | awk '{print $3;}' | grep -q "^$1\$"
+}
+
+mountdir() {
+    mount --bind $1 $2
+    mount -o remount,ro $2
+}
+
+mountdev() {
+    mount -t devtmpfs none $1
+    mount -t devpts none $1/pts
+}
+
+mountproc() {
+    mount -t proc none $1
+}
+
+mountsys() {
+    mount -t sysfs none $1
+}
+
+fullpath() {
+    cd $1
+    pwd -P
+}
+
+run() {
+    local _chroot
+
+    if test -z "$1"
+    then
+        echo "Path needed"
+        exit 1
+    fi
+
+    _chroot=$1
+
+    if test -n "$template"
+    then
+        tpl="(from template: $template) "
+    else
+        tpl=
+    fi
+    read -p "Use ${_chroot} as your new chroot? ${tpl}[yes/NO]> " answer
+    if ! test "$answer" = "yes"
+    then
+        if test -n "$verbose"
+        then
+            echo "Not doing anything."
+        fi
+        exit 3
+    fi
+
+    if test $mountonly -eq 0
+    then
+        $MKDIR ${_chroot}
+        $CHOWN root:$ZEROGRP ${_chroot}
+
+        for i in $CREATEDIRS
+        do
+            if test -d "/$i"
+            then
+                if ! test -d "${_chroot}/$i"
+                then
+                    $MKDIR "${_chroot}/$i"
+                fi
+            fi
+        done
+
+        $CHMOD 777 "${_chroot}/tmp"
+        $CHMOD 777 "${_chroot}/var/tmp"
+
+        for i in $COPYDIRS
+        do
+            if test -d "/$template/$i"
+            then
+                $CP "/$template/$i" "${_chroot}/$i"
+            fi
+        done
+
+        for i in $COPYITEMS
+        do
+            if test -e "/$template/$i"
+            then
+                $CP "/$template/$i" "${_chroot}/$i"
+            fi
+        done
+    fi
+
+    for i in $MOUNTDIRS
+    do
+        if test -d "/$i"
+        then
+            if ! is_mounted "${_chroot}/$i"
+            then
+                if test $copyusr -eq 1
+                then
+                    $CP "/$i" "${_chroot}/$i"
+                else
+                    if ! test -d "${_chroot}/$i"
+                    then
+                        $MKDIR "${_chroot}/$i"
+                    fi
+                    mountdir "/$i" "${_chroot}/$i"
+                fi
+            else
+                if test -n "$verbose"
+                then
+                    echo "${_chroot}/$i is already mounted. Skipping."
+                fi
+            fi
+        fi
+    done
+
+    if ! is_mounted "${_chroot}/dev"
+    then
+        if ! test -d "${_chroot}/dev"
+        then
+            $MKDIR "${_chroot}/dev"
+        fi
+        mountdev "${_chroot}/dev"
+    else
+        if test -n "$verbose"
+        then
+            echo "${_chroot}/dev is already mounted. Skipping."
+        fi
+    fi
+    if ! is_mounted "${_chroot}/proc"
+    then
+        if ! test -d "${_chroot}/proc"
+        then
+            $MKDIR "${_chroot}/proc"
+        fi
+        mountproc "${_chroot}/proc"
+    else
+        if test -n "$verbose"
+        then
+            echo "${_chroot}/proc is already mounted. Skipping."
+        fi
+    fi
+    if ! is_mounted "${_chroot}/sys"
+    then
+        if ! test -d "${_chroot}/sys"
+        then
+            $MKDIR "${_chroot}/sys"
+        fi
+        mountsys "${_chroot}/sys"
+    else
+        if test -n "$verbose"
+        then
+            echo "${_chroot}/sys is already mounted. Skipping."
+        fi
+    fi
+
+    if ! test -L "${_chroot}/lib64"
+    then
+        ln -s /lib/ "${_chroot}/lib64"
+    fi
+}
+
+set -o physical
+
+if test -n "$SUDO_USER"
+then
+    if test -d "/home/$SUDO_USER"
+    then
+        mychrootfile="/home/$SUDO_USER/.mychroots"
+    else
+        mychrootfile=$HOME/.mychroots
+    fi
+else
+    mychrootfile=$HOME/.mychroots
+fi
+
+force=0
+mountonly=0
+ports=0
+safe=0
+copyusr=1
+template=
+verbose=
+args=`getopt fhlmpst:uv $*`
+if test $? -ne 0
+then
+    usage
+    exit 2
+fi
+set -- $args
+while true
+do
+    case "$1" in
+    -f)
+        force=1
+        shift
+        ;;
+    -h)
+        usage
+        exit
+        ;;
+    -l)
+        if test -e $mychrootfile
+        then
+            echo "Your chroots:"
+            echo
+            cat $mychrootfile
+            echo
+        fi
+        exit
+        ;;
+    -m)
+        mountonly=1
+        shift
+        ;;
+    -p)
+        ports=1
+        shift
+        ;;
+    -s)
+        safe=1
+        shift
+        ;;
+    -t)
+        shift
+        template=$1
+        shift
+        # validate template dir
+        if test -d "$template"
+        then
+            template=`fullpath $template`
+        else
+            usage
+            exit 1
+        fi
+        ;;
+    -u)
+        copyusr=0
+        shift
+        ;;
+    -v)
+        verbose=-v
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    esac
+done
+
+if test `id -u` -ne 0
+then
+    echo "You are not a root"
+    usage
+    exit 1
+fi
+touch $mychrootfile
+
+MKDIR="mkdir -p $verbose"
+if test -n "$template"
+then
+    CP="cp -PRp $verbose"
+else
+    # do we need to follow links here?
+    if test $copyusr -eq 1
+    then
+        CP="cp -PRp $verbose"
+    else
+        CP="cp -LRp $verbose"
+    fi
+fi
+CHMOD="chmod $verbose"
+RM="rm -Rf $verbose"
+CHOWN='chown'
+CHMOD='chmod'
+
+CREATEDIRS="dev mnt tmp var var/tmp usr home libdata"
+CREATEDIRS_EX="root var/run var/log/apt var/db"
+MOUNTDIRS="bin lib libexec usr/bin usr/lib usr/share"
+MOUNTDIRS_EX="sbin usr/include usr/sbin"
+if test $ports -eq 1
+then
+    MOUNTDIRS_EX="$MOUNTDIRS_EX usr/ports"
+fi
+COPYDIRS=""
+COPYDIRS_EX="etc var/lib var/cache usr/local"
+COPYITEMS=""
+COPYITEMS_EX="root/.cshrc root/.login root/.profile root/.ssh root/.vimrc root/bin"
+COPYDIRS_TEMPLATE="usr/local var home"
+
+newchroot=$1
+
+if test -z "$newchroot"
+then
+    echo "Argument needed"
+    exit 1
+fi
+
+if test -d "$newchroot"
+then
+    newchroot=`fullpath $newchroot`
+    if grep -q "^${newchroot}\$" $mychrootfile && test $force -eq 0 -a $mountonly -eq 0
+    then
+        echo "First run cleanup-chroot $newchroot"
+        exit 1
+    fi
+else
+    $MKDIR $newchroot
+    newchroot=`fullpath $newchroot`
+fi
+
+if test $safe -eq 0
+then
+    CREATEDIRS="$CREATEDIRS $CREATEDIRS_EX"
+    MOUNTDIRS="$MOUNTDIRS $MOUNTDIRS_EX"
+    COPYDIRS="$COPYDIRS $COPYDIRS_EX"
+    COPYITEMS="$COPYITEMS $COPYITEMS_EX"
+fi
+
+if test -n "$template"
+then
+    COPYDIRS="$COPYDIRS $COPYDIRS_TEMPLATE"
+fi
+
+if run $newchroot
+then
+    grep -v "^${newchroot}\$" $mychrootfile > ${mychrootfile}.tmp
+    echo $newchroot >> ${mychrootfile}.tmp
+    mv ${mychrootfile}.tmp ${mychrootfile}
+else
+    exit 3
+fi
+

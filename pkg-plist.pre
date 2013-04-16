@@ -1,0 +1,11 @@
+@name tiny-chroot-0.1
+@cwd tiny-chroot-0.1
+@conflicts tiny-chroot-*
+@mode 755
+bin/setup-chroot
+bin/cleanup-chroot
+@mode 644
+man/tiny-chroot.1
+@owner root
+@group wheel
+
