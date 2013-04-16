@@ -2,8 +2,8 @@
 PORTNAME=	tiny-chroot
 PORTVERSION=	0.1
 CATEGORIES=	misc
-MASTER_SITES=	http://localhost:8000/distfiles/
-#MASTER_SITES=	https://raw.github.com/mkushnir/distfiles/master/
+#MASTER_SITES=	http://localhost:8000/distfiles/
+MASTER_SITES=	https://raw.github.com/mkushnir/distfiles/master/
 EXTRACT_SUFX=	.tgz
 NO_WRKSUBDIR=	yes
 
