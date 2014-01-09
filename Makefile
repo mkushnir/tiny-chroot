@@ -7,17 +7,19 @@ OS!= uname -s
 all:
 	if test "${OS}" = "FreeBSD"; \
 	then \
-	    package_name=${name}.tgz; \
+	    package_name=${name}.txz; \
 	    echo "Creating ${name} ..."; \
 	    rm -Rf ${name} && mkdir -p ${name}; \
-	    install -d ${name}/bin/; \
-	    install -d ${name}/man/; \
-	    install bin/setup-chroot-freebsd ${name}/bin/setup-chroot; \
-	    install bin/cleanup-chroot-freebsd ${name}/bin/cleanup-chroot; \
-	    install man/tiny-chroot.1 ${name}/man/; \
-	    pkg_create -c pkg-descr.pre -d pkg-descr.pre -s `pwd` -f pkg-plist.pre $${package_name}; \
-	    sha256 $${package_name} > port/distinfo; \
-	    echo "SIZE ($${package_name}) = `cksum $${package_name} | awk '{print $$2;}'`" >> port/distinfo; \
+	    rm -Rf work && mkdir work; \
+	    install -d ${name}/usr/local/bin/; \
+	    install -d ${name}/usr/local/man/; \
+	    install bin/setup-chroot ${name}/usr/local/bin/; \
+	    install bin/cleanup-chroot ${name}/usr/local/bin/; \
+	    install man/tiny-chroot.1 ${name}/usr/local/man/; \
+	    cp +MANIFEST.pre ${name}/+MANIFEST; \
+	    pkg create -r ${name}/ -o work -m ${name}; \
+	    sha256 work/$${package_name} > port/distinfo; \
+	    echo "SIZE ($${package_name}) = `cksum work/$${package_name} | awk '{print $$2;}'`" >> port/distinfo; \
 	else \
 	    echo "Platform ${OS} is not supported"; \
 	    exit 1; \
@@ -26,10 +28,10 @@ all:
 clean:
 	if test "${OS}" = "FreeBSD"; \
 	then \
-	    package_name=${name}.tgz; \
+	    package_name=${name}.txz; \
 	else \
 	    echo "Platform ${OS} is not supported"; \
 	    exit 1; \
 	fi; \
-	rm -Rf ${name} $${package_name};
+	rm -Rf ${name} work;
 

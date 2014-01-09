@@ -1,0 +1,12 @@
+name: tiny-chroot
+version: 0.1
+maintainer: markiyan.kushnir@gmail.com
+origin: misc/tiny-chroot
+prefix: /usr/local
+comment: A lightweight tool for managing chroot environments.
+desc: |-
+    A lightweight tool for managing chroot environments.
+
+files:
+    /usr/local/bin/setup-chroot: {sum: 1470c8bd90749994fb2e6a389f7bd60da83f91d44542a56d4ed117a470a3036b, perm: 0755}
+    /usr/local/bin/cleanup-chroot: {sum: da9541fcd72b60376a1e86428f303dbc544b1688a79dd6739300dd756bd16c56, perm: 0755}
