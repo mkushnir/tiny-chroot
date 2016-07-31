@@ -14,7 +14,7 @@ First define a directory that will be a root for your sandbox:
 
     % mkdir $HOME/my-test-chroot
 
-Now as a root (for example, using the sudo(8) command):
+Now as a root, using the _sudo(8)_ command:
 
     % sudo setup-chroot $HOME/my-test-chroot
 
@@ -77,6 +77,6 @@ When you no longer need your sandbox, run:
 
     % sudo cleanup-chroot $HOME/my-test-chroot
 
-It will completely wipe out all your sandbox: delete all pllications and
-data, and un-mount nullfs mountpoints.
+It will completely wipe out all your sandbox: delete all applications and
+data, and un-mount mountpoints.
 

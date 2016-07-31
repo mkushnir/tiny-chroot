@@ -278,7 +278,7 @@ then
     then
         MOUNTDIRS_EX="$MOUNTDIRS_EX usr/ports"
     else
-        echo "/usr/ports is not a irectory"
+        echo "/usr/ports is not a directory"
         exit 1
     fi
 fi
